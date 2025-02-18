@@ -428,12 +428,13 @@ def main():
                     )
                     try:
                         # Validate and parse arguments using the corresponding pydantic model
-                        if func_name == "ListTablesArgs":
+                        fn = func_name.strip().lower()
+                        if fn == "listtablesargs":
                             args_parsed = ListTablesArgs.model_validate_json(
                                 func_args_str
                             )
                             result = list_tables(reasoning=args_parsed.reasoning)
-                        elif func_name == "DescribeTableArgs":
+                        elif fn in ["describetableargs", "describe_table"]:
                             args_parsed = DescribeTableArgs.model_validate_json(
                                 func_args_str
                             )
@@ -441,7 +442,7 @@ def main():
                                 reasoning=args_parsed.reasoning,
                                 table_name=args_parsed.table_name,
                             )
-                        elif func_name == "SampleTableArgs":
+                        elif fn == "sampletableargs":
                             args_parsed = SampleTableArgs.model_validate_json(
                                 func_args_str
                             )
@@ -450,7 +451,7 @@ def main():
                                 table_name=args_parsed.table_name,
                                 row_sample_size=args_parsed.row_sample_size,
                             )
-                        elif func_name == "RunTestSQLQuery":
+                        elif fn == "runtestsqlquery":
                             args_parsed = RunTestSQLQuery.model_validate_json(
                                 func_args_str
                             )
@@ -458,7 +459,7 @@ def main():
                                 reasoning=args_parsed.reasoning,
                                 sql_query=args_parsed.sql_query,
                             )
-                        elif func_name == "RunFinalSQLQuery":
+                        elif fn == "runfinalsqlquery":
                             args_parsed = RunFinalSQLQuery.model_validate_json(
                                 func_args_str
                             )
@@ -466,7 +467,6 @@ def main():
                                 reasoning=args_parsed.reasoning,
                                 sql_query=args_parsed.sql_query,
                             )
-                            # Append the tool response to messages
                             messages.append(
                                 {
                                     "role": "tool",
@@ -474,11 +474,10 @@ def main():
                                     "content": json.dumps({"result": str(output)}),
                                 }
                             )
-                            # Append a user message instructing synthesis of a user-friendly explanation
                             messages.append(
                                 {
                                     "role": "user",
-                                    "content": "Based on the executed SQL query result above, please provide a user-friendly explanation and summary of the results.",
+                                    "content": "Based on the executed SQL query result above, please provide a user-friendly explanation and summary of the results and the {user_request} in a way that is easy for a human to understand. The output should be a single paragraph. The SQL query result is below:",
                                 }
                             )
                             final_response = openai.chat.completions.create(
