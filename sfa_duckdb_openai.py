@@ -15,9 +15,7 @@ import sys
 from typing import List
 
 import openai
-from openai import OpenAI
-
-# Using OpenAI's official Python SDK for third-party integration
+from openai import pydantic_function_tool
 from pydantic import BaseModel, Field, ValidationError
 from rich.console import Console
 from rich.panel import Panel
@@ -25,8 +23,6 @@ from rich.panel import Panel
 # Initialize rich console
 console = Console()
 
-def pydantic_function_tool(model):
-    return model
 
 # Create our list of function tools from our pydantic models
 class ListTablesArgs(BaseModel):
@@ -63,11 +59,11 @@ class RunFinalSQLQuery(BaseModel):
 
 # Create tools list
 tools = [
-    pydantic_function_tool(ListTablesArgs),  # noqa: F821
-    pydantic_function_tool(DescribeTableArgs),  # noqa: F821
-    pydantic_function_tool(SampleTableArgs),  # noqa: F821
-    pydantic_function_tool(RunTestSQLQuery),  # noqa: F821
-    pydantic_function_tool(RunFinalSQLQuery),  # noqa: F821
+    pydantic_function_tool(ListTablesArgs),
+    pydantic_function_tool(DescribeTableArgs),
+    pydantic_function_tool(SampleTableArgs),
+    pydantic_function_tool(RunTestSQLQuery),
+    pydantic_function_tool(RunFinalSQLQuery),
 ]
 
 AGENT_PROMPT = """<purpose>
@@ -390,7 +386,7 @@ def main():
         try:
             # Generate content with tool support
             response = openai.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 # model="gpt-4o-mini",
                 messages=messages,
                 tools=tools,
@@ -470,9 +466,21 @@ def main():
                                 reasoning=args_parsed.reasoning,
                                 sql_query=args_parsed.sql_query,
                             )
+                            # First append the tool response to messages
+                            messages.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": tool_call.id,
+                                    "content": json.dumps({"result": str(result)}),
+                                }
+                            )
+                            # Then print the final results
                             console.print("\n[green]Final Results:[/green]")
                             console.print(result)
-                            return
+                            console.print(
+                                "\n[green]Query completed successfully[/green]"
+                            )
+                            return result
                         else:
                             raise Exception(f"Unknown tool call: {func_name}")
 

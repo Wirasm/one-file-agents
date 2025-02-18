@@ -4,7 +4,6 @@
 # dependencies = [
 #   "google-genai>=1.1.0",
 #   "rich>=13.7.0",
-#   "python-dotenv>=1.0.1",
 # ]
 # ///
 
@@ -29,8 +28,6 @@ from typing import List
 
 from google import genai
 from google.genai import types
-
-# Using Google's Gemini SDK for third-party integration
 from rich.console import Console
 from rich.panel import Panel
 
@@ -334,7 +331,7 @@ def main():
     DB_PATH = args.db
 
     # Initialize Gemini client
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    client = genai.Client(api_key=GEMINI_API_KEY)
 
     completed_prompt = AGENT_PROMPT.replace("{{user_request}}", args.prompt)
 
@@ -363,7 +360,7 @@ def main():
         try:
             # Generate content with tool support
             response = client.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-2.0-flash-001",
                 # model="gemini-1.5-flash",
                 contents=[
                     *messages,
