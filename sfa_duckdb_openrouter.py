@@ -15,7 +15,11 @@ import sys
 from typing import List
 
 import openrouter
-from openrouter import pydantic_function_tool
+try:
+    from openrouter import pydantic_function_tool
+except ImportError:
+    def pydantic_function_tool(model):
+        return model
 from pydantic import BaseModel, Field, ValidationError
 from rich.console import Console
 from rich.panel import Panel
