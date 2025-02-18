@@ -322,11 +322,12 @@ def main():
             )
 
         try:
-            response = openrouter.chat.completions.create(
+            response = openrouter.ChatCompletion.create(
                 model="o3-mini",
                 messages=messages,
                 tools=tools,
                 tool_choice="required",
+                headers={"X-OpenRouter-Source": "DuckDBAgent"}
             )
 
             if response.choices:
