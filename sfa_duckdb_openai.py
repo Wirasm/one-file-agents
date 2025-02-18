@@ -23,6 +23,8 @@ from rich.panel import Panel
 # Initialize rich console
 console = Console()
 
+def pydantic_function_tool(model):
+    return model
 
 # Create our list of function tools from our pydantic models
 class ListTablesArgs(BaseModel):
