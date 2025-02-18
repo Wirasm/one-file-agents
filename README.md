@@ -39,3 +39,7 @@ The project is built around the idea of single file agents, which consolidate al
 - **Rapid Prototyping:** Developers can quickly iterate on the agent logic without navigating through multiple files.
 
 This design pattern is particularly useful for building lightweight, yet powerful, agents that are easy to deploy and maintain.
+
+
+Credit where credit is due: 
+https://www.youtube.com/watch?v=YAIJV48QlXc&t=1238s
