@@ -15,7 +15,7 @@ import sys
 from typing import List
 
 import openai
-from openai import pydantic_function_tool
+from openai import OpenAI
 from pydantic import BaseModel, Field, ValidationError
 from rich.console import Console
 from rich.panel import Panel
