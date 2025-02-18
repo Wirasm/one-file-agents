@@ -23,15 +23,18 @@ from rich.panel import Panel
 # Initialize rich console
 console = Console()
 
+
 # Create our list of function tools from our pydantic models
 class ListTablesArgs(BaseModel):
     reasoning: str = Field(
         ..., description="Explanation for listing tables relative to the user request"
     )
 
+
 class DescribeTableArgs(BaseModel):
     reasoning: str = Field(..., description="Reason why the table schema is needed")
     table_name: str = Field(..., description="Name of the table to describe")
+
 
 class SampleTableArgs(BaseModel):
     reasoning: str = Field(..., description="Explanation for sampling the table")
@@ -40,15 +43,19 @@ class SampleTableArgs(BaseModel):
         ..., description="Number of rows to sample (aim for 3-5 rows)"
     )
 
+
 class RunTestSQLQuery(BaseModel):
     reasoning: str = Field(..., description="Reason for testing this query")
     sql_query: str = Field(..., description="The SQL query to test")
 
+
 class RunFinalSQLQuery(BaseModel):
     reasoning: str = Field(
-        ..., description="Final explanation of how this query satisfies the user request"
+        ...,
+        description="Final explanation of how this query satisfies the user request",
     )
     sql_query: str = Field(..., description="The validated SQL query to run")
+
 
 # Create tools list
 tools = [
@@ -180,6 +187,7 @@ AGENT_PROMPT = """<purpose>
 </user-request>
 """
 
+
 def list_tables(reasoning: str) -> List[str]:
     try:
         result = subprocess.run(
@@ -194,6 +202,7 @@ def list_tables(reasoning: str) -> List[str]:
         console.log(f"[red]Error listing tables: {str(e)}[/red]")
         return []
 
+
 def describe_table(reasoning: str, table_name: str) -> str:
     try:
         result = subprocess.run(
@@ -202,11 +211,14 @@ def describe_table(reasoning: str, table_name: str) -> str:
             text=True,
             capture_output=True,
         )
-        console.log(f"[blue]Describe Table Tool[/blue] - Table: {table_name} - Reasoning: {reasoning}")
+        console.log(
+            f"[blue]Describe Table Tool[/blue] - Table: {table_name} - Reasoning: {reasoning}"
+        )
         return result.stdout
     except Exception as e:
         console.log(f"[red]Error describing table: {str(e)}[/red]")
         return ""
+
 
 def sample_table(reasoning: str, table_name: str, row_sample_size: int) -> str:
     try:
@@ -216,11 +228,14 @@ def sample_table(reasoning: str, table_name: str, row_sample_size: int) -> str:
             text=True,
             capture_output=True,
         )
-        console.log(f"[blue]Sample Table Tool[/blue] - Table: {table_name} - Rows: {row_sample_size} - Reasoning: {reasoning}")
+        console.log(
+            f"[blue]Sample Table Tool[/blue] - Table: {table_name} - Rows: {row_sample_size} - Reasoning: {reasoning}"
+        )
         return result.stdout
     except Exception as e:
         console.log(f"[red]Error sampling table: {str(e)}[/red]")
         return ""
+
 
 def run_test_sql_query(reasoning: str, sql_query: str) -> str:
     try:
@@ -237,6 +252,7 @@ def run_test_sql_query(reasoning: str, sql_query: str) -> str:
         console.log(f"[red]Error running test query: {str(e)}[/red]")
         return str(e)
 
+
 def run_final_sql_query(reasoning: str, sql_query: str) -> str:
     try:
         result = subprocess.run(
@@ -245,23 +261,38 @@ def run_final_sql_query(reasoning: str, sql_query: str) -> str:
             text=True,
             capture_output=True,
         )
-        console.log(Panel(f"[green]Final Query Tool[/green]\nReasoning: {reasoning}\nQuery: {sql_query}"))
+        console.log(
+            Panel(
+                f"[green]Final Query Tool[/green]\nReasoning: {reasoning}\nQuery: {sql_query}"
+            )
+        )
         return result.stdout
     except Exception as e:
         console.log(f"[red]Error running final query: {str(e)}[/red]")
         return str(e)
 
+
 def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description="DuckDB Agent using OpenRouter API")
-    parser.add_argument("-d", "--db", required=True, help="Path to DuckDB database file")
+    parser.add_argument(
+        "-d", "--db", required=True, help="Path to DuckDB database file"
+    )
     parser.add_argument("-p", "--prompt", required=True, help="The user's request")
-    parser.add_argument("-c", "--compute", type=int, default=10, help="Maximum number of agent loops (default: 10)")
+    parser.add_argument(
+        "-c",
+        "--compute",
+        type=int,
+        default=10,
+        help="Maximum number of agent loops (default: 10)",
+    )
     args = parser.parse_args()
 
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
     if not OPENROUTER_API_KEY:
-        console.print("[red]Error: OPENROUTER_API_KEY environment variable is not set[/red]")
+        console.print(
+            "[red]Error: OPENROUTER_API_KEY environment variable is not set[/red]"
+        )
         sys.exit(1)
     openrouter.api_key = OPENROUTER_API_KEY
 
@@ -273,16 +304,22 @@ def main():
 
     compute_iterations = 0
     while True:
-        console.rule(f"[yellow]Agent Loop {compute_iterations + 1}/{args.compute}[/yellow]")
+        console.rule(
+            f"[yellow]Agent Loop {compute_iterations + 1}/{args.compute}[/yellow]"
+        )
         compute_iterations += 1
 
         if compute_iterations >= args.compute:
-            console.print("[yellow]Warning: Reached maximum compute loops without final query[/yellow]")
-            raise Exception(f"Maximum compute loops reached: {compute_iterations}/{args.compute}")
+            console.print(
+                "[yellow]Warning: Reached maximum compute loops without final query[/yellow]"
+            )
+            raise Exception(
+                f"Maximum compute loops reached: {compute_iterations}/{args.compute}"
+            )
 
         try:
             response = openrouter.chat.completions.create(
-                model="gpt-4o-mini",
+                model="o3-mini",
                 messages=messages,
                 tools=tools,
                 tool_choice="required",
@@ -304,56 +341,98 @@ def main():
                     func_name = func_call.name
                     func_args_str = func_call.arguments
 
-                    messages.append({
-                        "role": "assistant",
-                        "tool_calls": [{"id": tool_call.id, "type": "function", "function": func_call}],
-                    })
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "tool_calls": [
+                                {
+                                    "id": tool_call.id,
+                                    "type": "function",
+                                    "function": func_call,
+                                }
+                            ],
+                        }
+                    )
 
-                    console.print(f"[blue]Function Call:[/blue] {func_name}({func_args_str})")
+                    console.print(
+                        f"[blue]Function Call:[/blue] {func_name}({func_args_str})"
+                    )
                     try:
                         if func_name == "ListTablesArgs":
-                            args_parsed = ListTablesArgs.model_validate_json(func_args_str)
+                            args_parsed = ListTablesArgs.model_validate_json(
+                                func_args_str
+                            )
                             result = list_tables(reasoning=args_parsed.reasoning)
                         elif func_name == "DescribeTableArgs":
-                            args_parsed = DescribeTableArgs.model_validate_json(func_args_str)
-                            result = describe_table(reasoning=args_parsed.reasoning, table_name=args_parsed.table_name)
+                            args_parsed = DescribeTableArgs.model_validate_json(
+                                func_args_str
+                            )
+                            result = describe_table(
+                                reasoning=args_parsed.reasoning,
+                                table_name=args_parsed.table_name,
+                            )
                         elif func_name == "SampleTableArgs":
-                            args_parsed = SampleTableArgs.model_validate_json(func_args_str)
-                            result = sample_table(reasoning=args_parsed.reasoning, table_name=args_parsed.table_name, row_sample_size=args_parsed.row_sample_size)
+                            args_parsed = SampleTableArgs.model_validate_json(
+                                func_args_str
+                            )
+                            result = sample_table(
+                                reasoning=args_parsed.reasoning,
+                                table_name=args_parsed.table_name,
+                                row_sample_size=args_parsed.row_sample_size,
+                            )
                         elif func_name == "RunTestSQLQuery":
-                            args_parsed = RunTestSQLQuery.model_validate_json(func_args_str)
-                            result = run_test_sql_query(reasoning=args_parsed.reasoning, sql_query=args_parsed.sql_query)
+                            args_parsed = RunTestSQLQuery.model_validate_json(
+                                func_args_str
+                            )
+                            result = run_test_sql_query(
+                                reasoning=args_parsed.reasoning,
+                                sql_query=args_parsed.sql_query,
+                            )
                         elif func_name == "RunFinalSQLQuery":
-                            args_parsed = RunFinalSQLQuery.model_validate_json(func_args_str)
-                            result = run_final_sql_query(reasoning=args_parsed.reasoning, sql_query=args_parsed.sql_query)
+                            args_parsed = RunFinalSQLQuery.model_validate_json(
+                                func_args_str
+                            )
+                            result = run_final_sql_query(
+                                reasoning=args_parsed.reasoning,
+                                sql_query=args_parsed.sql_query,
+                            )
                             console.print("\n[green]Final Results:[/green]")
                             console.print(result)
                             return
                         else:
                             raise Exception(f"Unknown tool call: {func_name}")
 
-                        console.print(f"[blue]Function Call Result:[/blue] {func_name}(...) ->\n{result}")
+                        console.print(
+                            f"[blue]Function Call Result:[/blue] {func_name}(...) ->\n{result}"
+                        )
 
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "content": json.dumps({"result": str(result)}),
-                        })
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "content": json.dumps({"result": str(result)}),
+                            }
+                        )
 
                     except Exception as e:
                         error_msg = f"Argument validation failed for {func_name}: {e}"
                         console.print(f"[red]{error_msg}[/red]")
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "content": json.dumps({"error": error_msg}),
-                        })
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "content": json.dumps({"error": error_msg}),
+                            }
+                        )
                         continue
                 else:
-                    raise Exception("No function call in this response - should never happen")
+                    raise Exception(
+                        "No function call in this response - should never happen"
+                    )
         except Exception as e:
             console.print(f"[red]Error in agent loop: {str(e)}[/red]")
             raise e
+
 
 if __name__ == "__main__":
     main()
