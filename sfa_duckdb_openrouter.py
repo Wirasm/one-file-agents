@@ -17,6 +17,7 @@ from typing import List
 import openrouter
 
 # Using OpenRouter's official Python SDK for third-party integration
+# For information about using third-party SDKs and frameworks with OpenRouter, please see our frameworks documentation.
 try:
     from openrouter import pydantic_function_tool
 except ImportError:
