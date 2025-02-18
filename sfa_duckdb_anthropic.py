@@ -1,11 +1,23 @@
+#!/usr/bin/env python3
+
 # /// script
 # dependencies = [
-#   "openai>=1.63.0",
+#   "anthropic>=0.45.2",
 #   "rich>=13.7.0",
-#   "pydantic>=2.0.0",
 # ]
 # ///
 
+"""
+/// Example Usage
+
+# Run DuckDB agent with default compute loops (3)
+uv run sfa_duckdb_anthropic_v2.py -d ./data/analytics.db -p "Show me all users with score above 80"
+
+# Run with custom compute loops
+uv run sfa_duckdb_anthropic_v2.py -d ./data/analytics.db -p "Show me all users with score above 80" -c 5
+
+///
+"""
 
 import argparse
 import json
@@ -14,57 +26,13 @@ import subprocess
 import sys
 from typing import List
 
-import openai
-from openai import pydantic_function_tool
-from pydantic import BaseModel, Field, ValidationError
+from anthropic import Anthropic
 from rich.console import Console
 from rich.panel import Panel
 
 # Initialize rich console
 console = Console()
 
-
-# Create our list of function tools from our pydantic models
-class ListTablesArgs(BaseModel):
-    reasoning: str = Field(
-        ..., description="Explanation for listing tables relative to the user request"
-    )
-
-
-class DescribeTableArgs(BaseModel):
-    reasoning: str = Field(..., description="Reason why the table schema is needed")
-    table_name: str = Field(..., description="Name of the table to describe")
-
-
-class SampleTableArgs(BaseModel):
-    reasoning: str = Field(..., description="Explanation for sampling the table")
-    table_name: str = Field(..., description="Name of the table to sample")
-    row_sample_size: int = Field(
-        ..., description="Number of rows to sample (aim for 3-5 rows)"
-    )
-
-
-class RunTestSQLQuery(BaseModel):
-    reasoning: str = Field(..., description="Reason for testing this query")
-    sql_query: str = Field(..., description="The SQL query to test")
-
-
-class RunFinalSQLQuery(BaseModel):
-    reasoning: str = Field(
-        ...,
-        description="Final explanation of how this query satisfies the user request",
-    )
-    sql_query: str = Field(..., description="The validated SQL query to run")
-
-
-# Create tools list
-tools = [
-    pydantic_function_tool(ListTablesArgs),
-    pydantic_function_tool(DescribeTableArgs),
-    pydantic_function_tool(SampleTableArgs),
-    pydantic_function_tool(RunTestSQLQuery),
-    pydantic_function_tool(RunFinalSQLQuery),
-]
 
 AGENT_PROMPT = """<purpose>
     You are a world-class expert at crafting precise DuckDB SQL queries.
@@ -330,7 +298,7 @@ def run_final_sql_query(reasoning: str, sql_query: str) -> str:
 
 def main():
     # Set up argument parser
-    parser = argparse.ArgumentParser(description="DuckDB Agent using OpenAI API")
+    parser = argparse.ArgumentParser(description="DuckDB Agent using Anthropic API")
     parser.add_argument(
         "-d", "--db", required=True, help="Path to DuckDB database file"
     )
@@ -345,22 +313,21 @@ def main():
     args = parser.parse_args()
 
     # Configure the API key
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    if not OPENAI_API_KEY:
+    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+    if not ANTHROPIC_API_KEY:
         console.print(
-            "[red]Error: OPENAI_API_KEY environment variable is not set[/red]"
+            "[red]Error: ANTHROPIC_API_KEY environment variable is not set[/red]"
         )
-        console.print(
-            "Please get your API key from https://platform.openai.com/api-keys"
-        )
-        console.print("Then set it with: export OPENAI_API_KEY='your-api-key-here'")
+        console.print("Please get your API key from your Anthropic dashboard")
+        console.print("Then set it with: export ANTHROPIC_API_KEY='your-api-key-here'")
         sys.exit(1)
-
-    openai.api_key = OPENAI_API_KEY
 
     # Set global DB_PATH for tool functions
     global DB_PATH
     DB_PATH = args.db
+
+    # Initialize Anthropic client
+    client = Anthropic()
 
     # Create a single combined prompt based on the full template
     completed_prompt = AGENT_PROMPT.replace("{{user_request}}", args.prompt)
@@ -384,142 +351,192 @@ def main():
             )
 
         try:
+            # Add the user's initial prompt if this is the first iteration
+            if compute_iterations == 1:
+                messages.append({"role": "user", "content": args.prompt})
+
             # Generate content with tool support
-            response = openai.chat.completions.create(
-                model="gpt-4o",
-                # model="gpt-4o-mini",
+            response = client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=1024,
                 messages=messages,
-                tools=tools,
-                tool_choice="required",
+                tools=[
+                    {
+                        "name": "list_tables",
+                        "description": "Returns list of available tables in database",
+                        "input_schema": {
+                            "type": "object",
+                            "properties": {
+                                "reasoning": {
+                                    "type": "string",
+                                    "description": "Explanation for listing tables",
+                                }
+                            },
+                            "required": ["reasoning"],
+                        },
+                    },
+                    {
+                        "name": "describe_table",
+                        "description": "Returns schema info for specified table",
+                        "input_schema": {
+                            "type": "object",
+                            "properties": {
+                                "reasoning": {
+                                    "type": "string",
+                                    "description": "Why we need to describe this table",
+                                },
+                                "table_name": {
+                                    "type": "string",
+                                    "description": "Name of table to describe",
+                                },
+                            },
+                            "required": ["reasoning", "table_name"],
+                        },
+                    },
+                    {
+                        "name": "sample_table",
+                        "description": "Returns sample rows from specified table",
+                        "input_schema": {
+                            "type": "object",
+                            "properties": {
+                                "reasoning": {
+                                    "type": "string",
+                                    "description": "Why we need to sample this table",
+                                },
+                                "table_name": {
+                                    "type": "string",
+                                    "description": "Name of table to sample",
+                                },
+                                "row_sample_size": {
+                                    "type": "integer",
+                                    "description": "Number of rows to sample aim for 3-5 rows",
+                                },
+                            },
+                            "required": ["reasoning", "table_name", "row_sample_size"],
+                        },
+                    },
+                    {
+                        "name": "run_test_sql_query",
+                        "description": "Tests a SQL query and returns results (only visible to agent)",
+                        "input_schema": {
+                            "type": "object",
+                            "properties": {
+                                "reasoning": {
+                                    "type": "string",
+                                    "description": "Why we're testing this specific query",
+                                },
+                                "sql_query": {
+                                    "type": "string",
+                                    "description": "The SQL query to test",
+                                },
+                            },
+                            "required": ["reasoning", "sql_query"],
+                        },
+                    },
+                    {
+                        "name": "run_final_sql_query",
+                        "description": "Runs the final validated SQL query and shows results to user",
+                        "input_schema": {
+                            "type": "object",
+                            "properties": {
+                                "reasoning": {
+                                    "type": "string",
+                                    "description": "Final explanation of how query satisfies user request",
+                                },
+                                "sql_query": {
+                                    "type": "string",
+                                    "description": "The validated SQL query to run",
+                                },
+                            },
+                            "required": ["reasoning", "sql_query"],
+                        },
+                    },
+                ],
+                tool_choice={"type": "any"},  # Always force a tool call
             )
 
-            if response.choices:
-                assert len(response.choices) == 1
-                message = response.choices[0].message
+            # Look for tool calls in the response (expecting ToolUseBlock objects)
+            tool_calls = []
 
-                if message.function_call:
-                    func_call = message.function_call
-                elif message.tool_calls and len(message.tool_calls) > 0:
-                    # If a tool_calls list is present, use the first call and extract its function details.
-                    tool_call = message.tool_calls[0]
-                    func_call = tool_call.function
-                else:
-                    func_call = None
+            for block in response.content:
+                if hasattr(block, "type") and block.type == "tool_use":
+                    tool_calls.append(block)
 
-                if func_call:
-                    func_name = func_call.name
-                    func_args_str = func_call.arguments
-
-                    messages.append(
-                        {
-                            "role": "assistant",
-                            "tool_calls": [
-                                {
-                                    "id": tool_call.id,
-                                    "type": "function",
-                                    "function": func_call,
-                                }
-                            ],
-                        }
-                    )
+            if tool_calls:
+                for tool_call in tool_calls:
+                    tool_use_id = tool_call.id
+                    func_name = tool_call.name
+                    func_args = (
+                        tool_call.input
+                    )  # already a dict; no need to call json.loads
 
                     console.print(
-                        f"[blue]Function Call:[/blue] {func_name}({func_args_str})"
+                        f"[blue]Tool Call:[/blue] {func_name}({json.dumps(func_args)})"
                     )
+
+                    messages.append({"role": "assistant", "content": response.content})
+
                     try:
-                        # Validate and parse arguments using the corresponding pydantic model
-                        if func_name == "ListTablesArgs":
-                            args_parsed = ListTablesArgs.model_validate_json(
-                                func_args_str
-                            )
-                            result = list_tables(reasoning=args_parsed.reasoning)
-                        elif func_name == "DescribeTableArgs":
-                            args_parsed = DescribeTableArgs.model_validate_json(
-                                func_args_str
-                            )
+                        if func_name == "list_tables":
+                            result = list_tables(reasoning=func_args["reasoning"])
+                        elif func_name == "describe_table":
                             result = describe_table(
-                                reasoning=args_parsed.reasoning,
-                                table_name=args_parsed.table_name,
+                                reasoning=func_args["reasoning"],
+                                table_name=func_args["table_name"],
                             )
-                        elif func_name == "SampleTableArgs":
-                            args_parsed = SampleTableArgs.model_validate_json(
-                                func_args_str
-                            )
+                        elif func_name == "sample_table":
                             result = sample_table(
-                                reasoning=args_parsed.reasoning,
-                                table_name=args_parsed.table_name,
-                                row_sample_size=args_parsed.row_sample_size,
+                                reasoning=func_args["reasoning"],
+                                table_name=func_args["table_name"],
+                                row_sample_size=func_args["row_sample_size"],
                             )
-                        elif func_name == "RunTestSQLQuery":
-                            args_parsed = RunTestSQLQuery.model_validate_json(
-                                func_args_str
-                            )
+                        elif func_name == "run_test_sql_query":
                             result = run_test_sql_query(
-                                reasoning=args_parsed.reasoning,
-                                sql_query=args_parsed.sql_query,
+                                reasoning=func_args["reasoning"],
+                                sql_query=func_args["sql_query"],
                             )
-                        elif func_name == "RunFinalSQLQuery":
-                            args_parsed = RunFinalSQLQuery.model_validate_json(
-                                func_args_str
+                        elif func_name == "run_final_sql_query":
+                            result = run_final_sql_query(
+                                reasoning=func_args["reasoning"],
+                                sql_query=func_args["sql_query"],
                             )
-                            output = run_final_sql_query(
-                                reasoning=args_parsed.reasoning,
-                                sql_query=args_parsed.sql_query,
-                            )
-                            # Append the tool response to messages
-                            messages.append(
-                                {
-                                    "role": "tool",
-                                    "tool_call_id": tool_call.id,
-                                    "content": json.dumps({"result": str(output)}),
-                                }
-                            )
-                            # Append a user message instructing synthesis of a user-friendly explanation
-                            messages.append(
-                                {
-                                    "role": "user",
-                                    "content": "Based on the executed SQL query result above, please provide a user-friendly explanation and summary of the results.",
-                                }
-                            )
-                            final_response = openai.chat.completions.create(
-                                model="gpt-4o",
-                                messages=messages,
-                            )
-                            final_answer = final_response.choices[0].message.content
-                            console.print("\n[green]Final Answer:[/green]")
-                            console.print(final_answer)
-                            return final_answer
+                            console.print("\n[green]Final Results:[/green]")
+                            console.print(result)
+                            return
                         else:
                             raise Exception(f"Unknown tool call: {func_name}")
 
                         console.print(
-                            f"[blue]Function Call Result:[/blue] {func_name}(...) ->\n{result}"
+                            f"[blue]Tool Call Result:[/blue] {func_name}(...) ->\n{result}"
                         )
 
-                        # Append the function call result into our messages as a tool response
                         messages.append(
                             {
-                                "role": "tool",
-                                "tool_call_id": tool_call.id,
-                                "content": json.dumps({"result": str(result)}),
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "tool_result",
+                                        "tool_use_id": tool_use_id,
+                                        "content": str(result),
+                                    }
+                                ],
                             }
                         )
 
                     except Exception as e:
-                        error_msg = f"Argument validation failed for {func_name}: {e}"
+                        error_msg = f"Error executing {func_name}: {str(e)}"
                         console.print(f"[red]{error_msg}[/red]")
                         messages.append(
                             {
                                 "role": "tool",
+                                "content": error_msg,
                                 "tool_call_id": tool_call.id,
-                                "content": json.dumps({"error": error_msg}),
                             }
                         )
                         continue
-                else:
-                    raise Exception(
-                        "No function call in this response - should never happen"
-                    )
+
+            else:
+                raise Exception("No tool calls found in response - should never happen")
 
         except Exception as e:
             console.print(f"[red]Error in agent loop: {str(e)}[/red]")
