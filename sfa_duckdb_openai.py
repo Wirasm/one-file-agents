@@ -61,11 +61,11 @@ class RunFinalSQLQuery(BaseModel):
 
 # Create tools list
 tools = [
-    pydantic_function_tool(ListTablesArgs),
-    pydantic_function_tool(DescribeTableArgs),
-    pydantic_function_tool(SampleTableArgs),
-    pydantic_function_tool(RunTestSQLQuery),
-    pydantic_function_tool(RunFinalSQLQuery),
+    pydantic_function_tool(ListTablesArgs),  # noqa: F821
+    pydantic_function_tool(DescribeTableArgs),  # noqa: F821
+    pydantic_function_tool(SampleTableArgs),  # noqa: F821
+    pydantic_function_tool(RunTestSQLQuery),  # noqa: F821
+    pydantic_function_tool(RunFinalSQLQuery),  # noqa: F821
 ]
 
 AGENT_PROMPT = """<purpose>
