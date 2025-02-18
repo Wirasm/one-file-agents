@@ -322,7 +322,7 @@ def main():
             )
 
         try:
-            response = openrouter.ChatCompletion.create(
+            response = openrouter.Completion.create(
                 model="o3-mini",
                 messages=messages,
                 tools=tools,
