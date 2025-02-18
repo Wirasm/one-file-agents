@@ -29,6 +29,8 @@ from typing import List
 
 from google import genai
 from google.genai import types
+
+# Using Google's Gemini SDK for third-party integration
 from rich.console import Console
 from rich.panel import Panel
 

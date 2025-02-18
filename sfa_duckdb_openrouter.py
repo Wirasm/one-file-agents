@@ -15,6 +15,8 @@ import sys
 from typing import List
 
 import openrouter
+
+# Using OpenRouter's official Python SDK for third-party integration
 try:
     from openrouter import pydantic_function_tool
 except ImportError:

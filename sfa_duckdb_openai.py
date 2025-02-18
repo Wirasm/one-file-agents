@@ -16,6 +16,8 @@ from typing import List
 
 import openai
 from openai import OpenAI
+
+# Using OpenAI's official Python SDK for third-party integration
 from pydantic import BaseModel, Field, ValidationError
 from rich.console import Console
 from rich.panel import Panel
