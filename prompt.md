@@ -1,4 +1,4 @@
-UPDATE sfa_sqlite_antrohopic.py only update this file nothing else
-    REFACTOR to target sqlite databases isntead of duckdb
-    keep all functions the same but target SQLITE databases with sqlite3
-    UPDATE tools and prompt to reference sqlite
+UPDATE sfa_structured_anthropic.py only update this file nothing else
+    REFACTOR to use the same agent loop strucutre as sfa_sqlite_anthropic.py (dont edit this file)
+    Make sure the agent prompt and the tools are optimized for structred output from simple invocies
+    UPDATE tools and prompt to reference the use case, do not change the pydantic model
