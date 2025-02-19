@@ -11,10 +11,10 @@
 /// Example Usage
 
 # Run DuckDB agent with default compute loops (3)
-uv run sfa_duckdb_anthropic_v2.py -d ./data/analytics.db -p "Show me all users with score above 80"
+uv run sfa_duckdb_anthropic.py -d ./data/analytics.db -p "Show me all users with score above 80"
 
 # Run with custom compute loops
-uv run sfa_duckdb_anthropic_v2.py -d ./data/analytics.db -p "Show me all users with score above 80" -c 5
+uv run sfa_duckdb_anthropic.py -d ./data/analytics.db -p "Show me all users with score above 80" -c 5
 
 ///
 """
