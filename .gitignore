@@ -12,3 +12,5 @@ wheels/
 .env
 
 my_duckdb_database.duckdb
+
+document.pdf
